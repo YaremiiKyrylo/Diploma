@@ -1,0 +1,51 @@
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h2>Sign in</h2>
+        <div id="loginAlert" class="alert alert-danger d-none" role="alert"></div>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" class="form-control" id="email" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" class="form-control" id="password" required />
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+            <a asp-action="Register" class="btn btn-link">Create account</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const alertEl = document.getElementById('loginAlert');
+    alertEl.classList.add('d-none');
+
+    const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        })
+    });
+
+    if (!res.ok) {
+        alertEl.textContent = 'Invalid email or password.';
+        alertEl.classList.remove('d-none');
+        return;
+    }
+
+    const data = await res.json();
+    setAuthSession(data.token, document.getElementById('email').value);
+    window.location.href = '/';
+});
+</script>
+}

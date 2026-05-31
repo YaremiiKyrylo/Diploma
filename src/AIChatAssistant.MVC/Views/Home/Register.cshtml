@@ -1,0 +1,60 @@
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2>Create account</h2>
+        <div id="registerAlert" class="alert alert-danger d-none" role="alert"></div>
+        <form id="registerForm">
+            <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" class="form-control" id="email" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" class="form-control" id="password" required minlength="6" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="company">Company</label>
+                <input type="text" class="form-control" id="company" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="jobTitle">Job title</label>
+                <input type="text" class="form-control" id="jobTitle" />
+            </div>
+            <button type="submit" class="btn btn-primary">Register</button>
+            <a asp-action="Login" class="btn btn-link">Already have an account?</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const alertEl = document.getElementById('registerAlert');
+    alertEl.classList.add('d-none');
+
+    const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            company: document.getElementById('company').value,
+            jobTitle: document.getElementById('jobTitle').value
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alertEl.textContent = err ? JSON.stringify(err) : 'Registration failed.';
+        alertEl.classList.remove('d-none');
+        return;
+    }
+
+    window.location.href = '/Home/Login';
+});
+</script>
+}

@@ -1,0 +1,266 @@
+﻿<div class="modal fade" id="adminSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-database-add"></i> Knowledge base</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="adminAlert" class="alert d-none" role="alert"></div>
+
+                <form id="uploadDocForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Upload document (PDF, DOCX)</label>
+                        <input class="form-control" type="file" id="knowledgeFile" name="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+                        <div class="form-text">Uploads to Azure Blob only. Use Process for RAG when ready.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Upload to storage</button>
+                </form>
+
+                <hr class="my-4">
+
+                <h6 class="fw-bold">Uploaded files</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle" id="knowledgeFilesTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>RAG status</th>
+                                <th>Blob</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="knowledgeFilesBody">
+                            <tr id="knowledgeFilesEmpty"><td colspan="4" class="text-muted">No files yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr class="my-4">
+
+                <form id="updatePromptForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">System prompt</label>
+                        <textarea class="form-control" id="systemPrompt" name="systemPrompt" rows="4">You are a corporate AI consultant. Use the provided context to answer questions.</textarea>
+                        <div class="form-text">Saved as the assistant system prompt only (not mixed into document RAG search).</div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm">Save prompt</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const alertEl = document.getElementById('adminAlert');
+    const filesBody = document.getElementById('knowledgeFilesBody');
+    const filesEmpty = document.getElementById('knowledgeFilesEmpty');
+    const modal = document.getElementById('adminSettingsModal');
+
+    function authHeaders(json) {
+        const h = { 'Authorization': 'Bearer ' + getAuthToken() };
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    function showAdminAlert(message, type) {
+        alertEl.textContent = message;
+        alertEl.className = 'alert alert-' + type;
+        alertEl.classList.remove('d-none');
+    }
+
+    function ragBadgeClass(status) {
+        switch (status) {
+            case 'Completed': return 'bg-success';
+            case 'Processing': return 'bg-primary';
+            case 'Failed': return 'bg-danger';
+            case 'Pending': return 'bg-secondary';
+            default: return 'bg-light text-dark';
+        }
+    }
+
+    async function loadKnowledgeFiles() {
+        if (!isLoggedIn() || !isAdmin()) return;
+
+        const res = await fetch('/KnowledgeBase/Sources', { headers: authHeaders() });
+        const data = await res.json().catch(() => []);
+        if (!res.ok) {
+            showAdminAlert((data && data.error) || 'Failed to load files.', 'danger');
+            return;
+        }
+
+        filesBody.querySelectorAll('tr:not(#knowledgeFilesEmpty)').forEach(r => r.remove());
+
+        if (!data.length) {
+            filesEmpty.classList.remove('d-none');
+            return;
+        }
+
+        filesEmpty.classList.add('d-none');
+
+        data.forEach(function (item) {
+            const tr = document.createElement('tr');
+            const canProcess = item.status === 'Pending' || item.status === 'Failed';
+            const hasRagData = item.status === 'Completed' || item.status === 'Failed' || item.status === 'Processing';
+            const blobLink = item.blobUrl
+                ? '<a href="' + item.blobUrl + '" target="_blank" rel="noopener">Open</a>'
+                : '<span class="text-muted">—</span>';
+
+            tr.innerHTML =
+                '<td>' + escapeHtml(item.fileName) + '</td>' +
+                '<td><span class="badge ' + ragBadgeClass(item.status) + '">' + escapeHtml(item.ragStatus || item.status) + '</span></td>' +
+                '<td>' + blobLink + '</td>' +
+                '<td class="text-end text-nowrap">' +
+                (canProcess
+                    ? '<button type="button" class="btn btn-outline-primary btn-sm me-1 btn-process" data-id="' + item.id + '">Process for RAG</button>'
+                    : '') +
+                (hasRagData
+                    ? '<button type="button" class="btn btn-outline-warning btn-sm me-1 btn-delete-related" data-id="' + item.id + '" data-name="' + escapeAttr(item.fileName) + '">Delete related data</button>'
+                    : '') +
+                '<button type="button" class="btn btn-outline-danger btn-sm btn-delete-all" data-id="' + item.id + '" data-name="' + escapeAttr(item.fileName) + '">Delete all</button>' +
+                '</td>';
+
+            filesBody.appendChild(tr);
+        });
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function escapeAttr(s) {
+        return (s || '').replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('uploadDocForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (!isLoggedIn() || !isAdmin()) {
+            showAdminAlert('Admin login required.', 'warning');
+            return;
+        }
+
+        const fileInput = document.getElementById('knowledgeFile');
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        const res = await fetch('/KnowledgeBase/Upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getAuthToken() },
+            body: formData
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            showAdminAlert(data.message || 'Upload complete.', 'success');
+            fileInput.value = '';
+            await loadKnowledgeFiles();
+        } else {
+            showAdminAlert(data.error || 'Upload failed.', 'danger');
+        }
+    });
+
+    filesBody.addEventListener('click', async function (e) {
+        const processBtn = e.target.closest('.btn-process');
+        const deleteRelatedBtn = e.target.closest('.btn-delete-related');
+        const deleteAllBtn = e.target.closest('.btn-delete-all');
+
+        if (processBtn) {
+            const id = processBtn.dataset.id;
+            processBtn.disabled = true;
+            const res = await fetch('/KnowledgeBase/process/' + id, {
+                method: 'POST',
+                headers: authHeaders()
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                showAdminAlert(data.message || 'Processing complete.', 'success');
+                await loadKnowledgeFiles();
+            } else {
+                showAdminAlert(data.error || 'Processing failed.', 'danger');
+            }
+            processBtn.disabled = false;
+        }
+
+        if (deleteRelatedBtn) {
+            const id = deleteRelatedBtn.dataset.id;
+            const name = deleteRelatedBtn.dataset.name || 'this file';
+            if (!confirm(
+                'Delete related data for "' + name + '"?\n\n' +
+                'Removes: Pinecone vectors and database chunks/RAG metadata.\n' +
+                'Keeps: Azure blob file and source record.\n\n' +
+                'You can click "Process for RAG" afterward to re-index from the blob.'
+            )) return;
+
+            deleteRelatedBtn.disabled = true;
+            const res = await fetch('/KnowledgeBase/DeleteRelatedData/' + id, {
+                method: 'DELETE',
+                headers: authHeaders()
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                showAdminAlert(data.message || 'Related data deleted.', 'success');
+                await loadKnowledgeFiles();
+            } else {
+                showAdminAlert(data.error || 'Delete failed.', 'danger');
+            }
+            deleteRelatedBtn.disabled = false;
+        }
+
+        if (deleteAllBtn) {
+            const id = deleteAllBtn.dataset.id;
+            const name = deleteAllBtn.dataset.name || 'this file';
+            if (!confirm(
+                'Delete all for "' + name + '"?\n\n' +
+                'Removes: Pinecone vectors, database source/chunks, and the Azure blob file.\n' +
+                'This cannot be undone.'
+            )) return;
+
+            deleteAllBtn.disabled = true;
+            const res = await fetch('/KnowledgeBase/source/' + id + '?deleteBlob=true', {
+                method: 'DELETE',
+                headers: authHeaders()
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                showAdminAlert(data.message || 'Deleted.', 'success');
+                await loadKnowledgeFiles();
+            } else {
+                showAdminAlert(data.error || 'Delete failed.', 'danger');
+            }
+            deleteAllBtn.disabled = false;
+        }
+    });
+
+    document.getElementById('updatePromptForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (!isLoggedIn() || !isAdmin()) {
+            showAdminAlert('Admin login required.', 'warning');
+            return;
+        }
+
+        const prompt = document.getElementById('systemPrompt').value;
+        const formData = new FormData();
+        formData.append('systemPrompt', prompt);
+
+        const res = await fetch('/Settings/UpdatePrompt', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getAuthToken() },
+            body: formData
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            showAdminAlert(data.message || 'Prompt saved.', 'success');
+        } else {
+            showAdminAlert(data.error || 'Save failed.', 'danger');
+        }
+    });
+
+    if (modal) {
+        modal.addEventListener('show.bs.modal', loadKnowledgeFiles);
+    }
+});
+</script>

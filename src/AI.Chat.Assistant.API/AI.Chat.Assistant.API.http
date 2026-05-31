@@ -1,0 +1,35 @@
+@host = https://localhost:7167
+@apiKey = secret-key
+
+### Dev diagnostics (no API key in Development)
+GET {{host}}/api/diag
+
+### Create chat session (UserId must exist in AspNetUsers)
+POST {{host}}/api/ai-chat/sessions
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "title": "Test session"
+}
+
+### Send chat message (replace sessionId)
+POST {{host}}/api/ai-chat/messages
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "sessionId": "00000000-0000-0000-0000-000000000000",
+  "message": "Hello"
+}
+
+### Upload text knowledge
+POST {{host}}/api/knowledge/upload-text
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "text": "Sample knowledge for RAG."
+}

@@ -1,0 +1,19 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="text-center py-5">
+    <h1 class="display-5">Corporate AI Assistant</h1>
+    <p class="lead text-muted">RAG-powered chat with document knowledge base.</p>
+
+    <div data-auth="guest">
+        <p>Sign in to open the chat widget and ask questions about uploaded documents.</p>
+        <a class="btn btn-primary me-2" asp-action="Register">Get started</a>
+        <a class="btn btn-outline-primary" asp-action="Login">Login</a>
+    </div>
+
+    <div data-auth="user" style="display:none;">
+        <p>You are signed in. Use the chat button at the bottom-right to start a conversation.</p>
+        <p class="text-muted small">Admins can upload documents and edit the system prompt via <strong>RAG settings</strong> in the navbar.</p>
+    </div>
+</div>

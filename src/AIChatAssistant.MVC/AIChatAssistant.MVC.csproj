@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.27" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.7.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AI.Chat.Assistant.Domain\AIChatAssistant.Domain.csproj" />
+    <ProjectReference Include="..\AI.Chat.Assistant.Infrastructure\AIChatAssistant.Infrastructure.csproj" />
+    <ProjectReference Include="..\AI.Chat.Assistant.Shared\AIChatAssistant.Shared.csproj" />
+    <ProjectReference Include="..\AI.Chat.AssistantApplication\AIChatAssistant.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\AI.Chat.Assistant.API\models\**\*" Link="models\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

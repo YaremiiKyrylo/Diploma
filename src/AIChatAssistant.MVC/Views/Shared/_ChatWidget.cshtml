@@ -1,0 +1,167 @@
+﻿<style>
+    .chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1050;
+    }
+    .chat-button {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+    }
+    .chat-button:hover { transform: scale(1.1); }
+    .chat-window {
+        display: none;
+        width: 350px;
+        height: 500px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        flex-direction: column;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .chat-header {
+        background: #0d6efd;
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .chat-body {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-message {
+        margin-bottom: 10px;
+        padding: 10px 15px;
+        border-radius: 15px;
+        max-width: 80%;
+        font-size: 0.9rem;
+    }
+    .msg-assistant { background: #e9ecef; align-self: flex-start; }
+    .msg-user { background: #0d6efd; color: white; align-self: flex-end; margin-left: auto; }
+    .chat-input-area {
+        padding: 10px;
+        border-top: 1px solid #dee2e6;
+        background: white;
+        display: flex;
+    }
+</style>
+
+<div class="chat-widget">
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <strong>AI Assistant</strong>
+            <i class="bi bi-x-lg" id="closeChatBtn" style="cursor:pointer;"></i>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="chat-message msg-assistant">
+                Hello! I am your knowledge-base assistant. How can I help?
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="form-control me-2" placeholder="Type a message...">
+            <button id="sendChatBtn" class="btn btn-primary"><i class="bi bi-send-fill"></i></button>
+        </div>
+    </div>
+    <div class="chat-button" id="openChatBtn">
+        <i class="bi bi-chat-dots-fill"></i>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const chatWindow = document.getElementById('chatWindow');
+    const openChatBtn = document.getElementById('openChatBtn');
+    const closeChatBtn = document.getElementById('closeChatBtn');
+    const chatBody = document.getElementById('chatBody');
+    const chatInput = document.getElementById('chatInput');
+    const sendChatBtn = document.getElementById('sendChatBtn');
+    let currentSessionId = null;
+
+    openChatBtn.addEventListener('click', () => {
+        chatWindow.style.display = 'flex';
+        openChatBtn.style.display = 'none';
+    });
+
+    closeChatBtn.addEventListener('click', () => {
+        chatWindow.style.display = 'none';
+        openChatBtn.style.display = 'flex';
+    });
+
+    chatInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+    sendChatBtn.addEventListener('click', sendMessage);
+
+    async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        if (!isLoggedIn()) {
+            appendMessage('<span class="text-danger">Please <a href="/Home/Login">login</a> first.</span>', 'assistant');
+            return;
+        }
+
+        chatInput.value = '';
+        appendMessage(text, 'user');
+
+        const loadingId = 'loading-' + Date.now();
+        appendMessage('<div class="spinner-border spinner-border-sm text-secondary" role="status"></div> Thinking...', 'assistant', loadingId);
+
+        try {
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: getAuthHeaders(true),
+                body: JSON.stringify({ sessionId: currentSessionId, message: text })
+            });
+
+            if (response.status === 401) {
+                removeMessage(loadingId);
+                appendMessage('<span class="text-danger">Session expired. Please login again.</span>', 'assistant');
+                clearAuthSession();
+                return;
+            }
+
+            if (!response.ok) throw new Error('Network error');
+
+            const data = await response.json();
+            currentSessionId = data.sessionId;
+            removeMessage(loadingId);
+            const formattedReply = (data.reply || '').replace(/\n/g, '<br>');
+            appendMessage(formattedReply, 'assistant');
+        } catch {
+            removeMessage(loadingId);
+            appendMessage('<span class="text-danger">Server error. Try again.</span>', 'assistant');
+        }
+    }
+
+    function appendMessage(text, sender, id = null) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-message msg-${sender}`;
+        if (id) msgDiv.id = id;
+        msgDiv.innerHTML = text;
+        chatBody.appendChild(msgDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function removeMessage(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+});
+</script>

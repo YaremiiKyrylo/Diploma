@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AI Assistant</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">Corporate AI</a>
+
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1"></ul>
+
+                    <ul class="navbar-nav align-items-center">
+                        <li class="nav-item me-3" id="adminNavItem" style="display:none;">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#adminSettingsModal">
+                                <i class="bi bi-gear-fill"></i> RAG settings
+                            </button>
+                        </li>
+
+                        <li class="nav-item" data-auth="user" style="display:none;">
+                            <span class="nav-link text-dark">Hello, <span id="navUserName"></span>!</span>
+                        </li>
+                        <li class="nav-item" data-auth="user" style="display:none;">
+                            <button type="button" class="btn btn-link nav-link" id="logoutBtn">Logout</button>
+                        </li>
+                        <li class="nav-item" data-auth="guest">
+                            <a class="nav-link" asp-controller="Home" asp-action="Login">Login</a>
+                        </li>
+                        <li class="nav-item" data-auth="guest">
+                            <a class="nav-link" asp-controller="Home" asp-action="Register">Register</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <partial name="_AdminSettingsModal" />
+
+    <div id="chatWidgetContainer" style="display:none;">
+        <partial name="_ChatWidget" />
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/auth.js" asp-append-version="true"></script>
+    <script>
+        document.getElementById('logoutBtn')?.addEventListener('click', function () {
+            clearAuthSession();
+            window.location.href = '/';
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
